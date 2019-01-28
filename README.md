@@ -1,2 +1,2 @@
-# Deep-Learning-Map
+# Deep Learning Map
 
