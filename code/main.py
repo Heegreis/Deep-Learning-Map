@@ -25,10 +25,15 @@ def train(args, model, device, train_loader, criterion, optimizer, epoch):
             100. * batch_index / len(train_loader), loss.item()))
 
 
-def test(args, model, device, test_loader):
+def test(args, model, device, test_loader, criterion):
     model.test()
     test_loss = 0
     correct = 0
+    with torch.no_grad():
+        for data, target in test_loader:
+            data, target = data.to(device), target.to(device)
+            output = model(data)
+            test_loss += criterion(output, target, reduction)
 
 
 if __name__ == '__main__':
@@ -103,6 +108,6 @@ if __name__ == '__main__':
     ## train and test
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, criterion, optimizer, epoch)
-        test(args, model, device, test_loader)
+        test(args, model, device, test_loader, criterion)
 
     print("end")
