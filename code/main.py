@@ -33,7 +33,19 @@ def test(args, model, device, test_loader, criterion):
         for data, target in test_loader:
             data, target = data.to(device), target.to(device)
             output = model(data)
-            test_loss += criterion(output, target, reduction)
+            test_loss += criterion(
+                output, target, reduction='sum').item()  # sum up batch loss
+            pred = output.argmax(
+                dim=1,
+                keepdim=True)  # get the index of the max log-probability
+            correct += pred.eq(target.view_as(pred)).sum().item()
+
+    test_loss /= len(test_loader.dataset)
+
+    print(
+        '\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
+            test_loss, correct, len(test_loader.dataset),
+            100. * correct / len(test_loader.dataset)))
 
 
 if __name__ == '__main__':
@@ -86,6 +98,7 @@ if __name__ == '__main__':
     # device setting
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
+    print(device)
 
     # data load
     transform = transforms.ToTensor()
