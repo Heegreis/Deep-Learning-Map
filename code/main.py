@@ -18,11 +18,11 @@ def train(args, model, device, train_loader, criterion, optimizer, epoch):
         loss = criterion(output, target)
         loss.backward()
         optimizer.step()
-    # print log
-    if batch_index % args.log_interval == 0:
-        print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-            epoch, batch_index * len(data), len(train_loader.dataset),
-            100. * batch_index / len(train_loader), loss.item()))
+        # print log
+        if batch_index % args.log_interval == 0:
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+                epoch, batch_index * len(data), len(train_loader.dataset),
+                100. * batch_index / len(train_loader), loss.item()))
 
 
 def test(args, model, device, test_loader, criterion):
@@ -100,7 +100,10 @@ if __name__ == '__main__':
     print(device)
 
     # data load
-    transform = transforms.ToTensor()
+    transform = transforms.Compose([
+        transforms.Pad(padding=2),
+        transforms.ToTensor(),
+    ])
     ## train data
     train_set = datasets.MNIST(
         root='dataset/MNIST/', train=True, transform=transform, download=True)
