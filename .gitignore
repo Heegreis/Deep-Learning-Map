@@ -1,6 +1,6 @@
 
 \.vscode/launch\.json
 
-dataset/
+\data/
 
-code/models/__pycache__/
+__pycache__/
