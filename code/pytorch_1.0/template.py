@@ -97,11 +97,13 @@ def main():
         ]),
     }
 
+    # 從資料夾讀取圖片資料集
     data_dir = 'data/hymenoptera_data'
     image_datasets = {
         x: datasets.ImageFolder(os.path.join(data_dir, x), data_transforms[x])
         for x in ['train', 'val']
     }
+    # 尚需理解之間的數據轉換 #
     dataloaders = {
         x: torch.utils.data.DataLoader(
             image_datasets[x], batch_size=4, shuffle=True, num_workers=4)
@@ -125,8 +127,7 @@ def main():
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
 
     ## Decay LR by a factor of 0.1 every 7 epochs
-    exp_lr_scheduler = lr_scheduler.StepLR(
-        optimizer_ft, step_size=7, gamma=0.1)
+    exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
     # 開始訓練模型，並且驗證
     model = train_model(
