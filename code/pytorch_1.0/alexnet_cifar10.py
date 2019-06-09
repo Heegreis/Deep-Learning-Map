@@ -18,6 +18,10 @@ def main():
             cifar10_datasets[x], batch_size=4, shuffle=True, num_workers=2)
         for x in ['train, val']
     }
+    dataset_sizes = {x: len(cifar10_datasets) for x in ['train', 'val']}
+
+    # 設定device參數
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 if __name__ == "__main__":
