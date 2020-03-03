@@ -10,19 +10,28 @@ from submodules.yolov3.utils.datasets import *
 from submodules.yolov3.utils.utils import *
 
 
-def detect(save_img=False):
-    img_size = (320, 192) if ONNX_EXPORT else opt.img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
-    out, source, weights, half, view_img, save_txt = opt.output, opt.source, opt.weights, opt.half, opt.view_img, opt.save_txt
+def detect(source):
+    cfg = 'submodules/yolov3/cfg/yolov3-spp.cfg'
+    names = 'submodules/yolov3/data/coco.names'
+    weights = 'submodules/yolov3/weights/yolov3-spp-ultralytics.pt'
+    img_size = 416
+    conf_thres = 0.3
+    iou_thres = 0.6
+    half = False
+    device = ''
+    view_img = True
+    classes = []
+    agnostic_nms = False
+
+
+    img_size = (320, 192) if ONNX_EXPORT else img_size  # (320, 192) or (416, 256) or (608, 352) for (height, width)
     webcam = source == '0' or source.startswith('rtsp') or source.startswith('http') or source.endswith('.txt')
 
     # Initialize
-    device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else opt.device)
-    if os.path.exists(out):
-        shutil.rmtree(out)  # delete output folder
-    os.makedirs(out)  # make new output folder
+    device = torch_utils.select_device(device='cpu' if ONNX_EXPORT else device)
 
     # Initialize model
-    model = Darknet(opt.cfg, img_size)
+    model = Darknet(cfg, img_size)
 
     # Load weights
     attempt_download(weights)
@@ -65,17 +74,15 @@ def detect(save_img=False):
         model.half()
 
     # Set Dataloader
-    vid_path, vid_writer = None, None
     if webcam:
         view_img = True
         torch.backends.cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=img_size)
     else:
-        save_img = True
         dataset = LoadImages(source, img_size=img_size)
 
     # Get names and colors
-    names = load_classes(opt.names)
+    names = load_classes(names)
     colors = [[random.randint(0, 255) for _ in range(3)] for _ in range(len(names))]
 
     # Run inference
@@ -92,7 +99,7 @@ def detect(save_img=False):
         pred = model(img)[0].float() if half else model(img)[0]
 
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
+        pred = non_max_suppression(pred, conf_thres, iou_thres, classes=classes, agnostic=agnostic_nms)
 
         # Apply Classifier
         if classify:
@@ -100,12 +107,12 @@ def detect(save_img=False):
 
         # Process detections
         for i, det in enumerate(pred):  # detections per image
+            results_list = []
             if webcam:  # batch_size >= 1
                 p, s, im0 = path[i], '%g: ' % i, im0s[i]
             else:
                 p, s, im0 = path, '', im0s
 
-            save_path = str(Path(out) / Path(p).name)
             s += '%gx%g ' % img.shape[2:]  # print string
             if det is not None and len(det):
                 # Rescale boxes from img_size to im0 size
@@ -118,17 +125,15 @@ def detect(save_img=False):
 
                 # Write results
                 for *xyxy, conf, cls in det:
-                    if save_txt:  # Write to file
-                        with open(save_path + '.txt', 'a') as file:
-                            file.write(('%g ' * 6 + '\n') % (*xyxy, cls, conf))
+                    results_list.append({'xyxy': xyxy, 'conf': conf, 'label': names[int(cls)]})
 
-                    if save_img or view_img:  # Add bbox to image
+                    if view_img:  # Add bbox to image
                         label = '%s %.2f' % (names[int(cls)], conf)
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)])
 
             # Print time (inference + NMS)
             # print('%sDone. (%.3fs)' % (s, time.time() - t))
-            yield('%sDone. (%.3fs)' % (s, time.time() - t))
+            yield(im0, results_list)
 
             # Stream results
             if view_img:
@@ -136,53 +141,14 @@ def detect(save_img=False):
                 if cv2.waitKey(1) == ord('q'):  # q to quit
                     raise StopIteration
 
-            # Save results (image with detections)
-            if save_img:
-                if dataset.mode == 'images':
-                    cv2.imwrite(save_path, im0)
-                else:
-                    if vid_path != save_path:  # new video
-                        vid_path = save_path
-                        if isinstance(vid_writer, cv2.VideoWriter):
-                            vid_writer.release()  # release previous video writer
-
-                        fps = vid_cap.get(cv2.CAP_PROP_FPS)
-                        w = int(vid_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-                        h = int(vid_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        vid_writer = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*opt.fourcc), fps, (w, h))
-                    vid_writer.write(im0)
-
-    if save_txt or save_img:
-        print('Results saved to %s' % os.getcwd() + os.sep + out)
-        if platform == 'darwin':  # MacOS
-            os.system('open ' + out + ' ' + save_path)
-
     print('Done. (%.3fs)' % (time.time() - t0))
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', type=str, default='submodules\yolov3\cfg\yolov3-spp.cfg', help='*.cfg path')
-    parser.add_argument('--names', type=str, default='submodules\yolov3\data/coco.names', help='*.names path')
-    parser.add_argument('--weights', type=str, default='submodules\yolov3\weights/yolov3-spp-ultralytics.pt', help='weights path')
-    parser.add_argument('--source', type=str, default='data/samples', help='source')  # input file/folder, 0 for webcam
-    parser.add_argument('--output', type=str, default='output', help='output folder')  # output folder
-    parser.add_argument('--img-size', type=int, default=416, help='inference size (pixels)')
-    parser.add_argument('--conf-thres', type=float, default=0.3, help='object confidence threshold')
-    parser.add_argument('--iou-thres', type=float, default=0.6, help='IOU threshold for NMS')
-    parser.add_argument('--fourcc', type=str, default='mp4v', help='output video codec (verify ffmpeg support)')
-    parser.add_argument('--half', action='store_true', help='half precision FP16 inference')
-    parser.add_argument('--device', default='', help='device id (i.e. 0 or 0,1) or cpu')
-    parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
-    parser.add_argument('--classes', nargs='+', type=int, help='filter by class')
-    parser.add_argument('--agnostic-nms', action='store_true', help='class-agnostic NMS')
-    opt = parser.parse_args()
-    print(opt)
-
+    source = 'stream.txt'
     # with torch.no_grad():
     #     detect()
     with torch.no_grad():
-        detect_gen = detect()
+        detect_gen = detect(source)
         for x in detect_gen:
             print(x)
