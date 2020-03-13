@@ -108,12 +108,12 @@ if __name__ == '__main__':
     ])
     ## train data
     train_set = datasets.MNIST(
-        root='dataset/MNIST/', train=True, transform=transform, download=True)
+        root='dataset/', train=True, transform=transform, download=True)
     train_loader = DataLoader(
         train_set, batch_size=args.batch_size, shuffle=True)
     ## test data
     test_set = datasets.MNIST(
-        root='dataset/MNIST/', train=False, transform=transform, download=True)
+        root='dataset/', train=False, transform=transform, download=True)
     test_loader = DataLoader(
         test_set, batch_size=args.batch_size, shuffle=True)
 
